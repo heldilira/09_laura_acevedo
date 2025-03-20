@@ -10,4 +10,10 @@ To learn more about Quarto websites visit <https://quarto.org/docs/websites>.
 library(tidyverse)
 library(readxl)
 library(summarytools)
+library(usethis)
+```
+
+```{r}
+usethis::use_git()
+usethis::use_github()
 ```
