@@ -7,13 +7,95 @@ This is a Quarto website.
 To learn more about Quarto websites visit <https://quarto.org/docs/websites>.
 
 ```{r}
+#|label: load packages
 library(tidyverse)
 library(readxl)
 library(summarytools)
 library(usethis)
+library(janitor)
 ```
 
 ```{r}
-usethis::use_git()
-usethis::use_github()
+#|label: load data
+df <- read_excel("data_private/planilha_oficial_baseline_forms.xlsx", 
+    sheet = "09-01-2025", na = c("-")) |> 
+     clean_names()
+```
+
+```{r}
+df |> mutate(
+     escolaridade_rec = case_when(
+          escolaridade == 1 ~ "Não frequentou escola",
+          escolaridade == 2 ~ "Ensino Fundamental",
+          escolaridade == 3 ~ "Ensino Médio",
+          escolaridade == 4 ~ "Ensino Técnico",
+          escolaridade == 5 ~ "Graduação - Tecnólogo",
+          escolaridade == 6 ~ "Graduação - Normal",
+          escolaridade == 7 ~ "Pós-graduação",
+          TRUE ~ escolaridade) |> View()
+```
+
+```{r}
+df_aux <- df |> 
+     mutate(
+     escolaridade_rec = case_when(
+          escolaridade == 1 ~ "Não frequentou escola",
+          escolaridade == 2 ~ "Ensino Fundamental",
+          escolaridade == 3 ~ "Ensino Médio",
+          escolaridade == 4 ~ "Ensino Técnico",
+          escolaridade == 5 ~ "Graduação - Tecnólogo",
+          escolaridade == 6 ~ "Graduação - Normal",
+          escolaridade == 7 ~ "Pós-graduação",
+          TRUE ~ as.character(escolaridade)),
+     escolaridade_rec = escolaridade_rec |>
+          fct_relevel(
+          "Não frequentou escola",
+          "Ensino Fundamental",
+          "Ensino Médio",
+          "Ensino Técnico",
+          "Graduação - Tecnólogo",
+          "Graduação - Normal",
+          "Pós-graduação"),
+     genero_rec = case_when(
+          gender == "F" ~ "Feminino",
+          gender == "M" ~ "Masculino",
+          TRUE ~ NA_character_),
+     estado_civil_rec = case_when(
+          pmarry == "1.0"  ~ "Casada",
+          pmarry == "2.0"  ~ "União conjugal estável (informal / não no papel)",
+          pmarry == "3.0"  ~ "Solteira",
+          pmarry == "4.0"  ~ "Separada",
+          pmarry == "5.0"  ~ "Desquitada ou Divorciada",
+          pmarry == "6.0"  ~ "Viúva",
+          pmarry == "99.0" ~ "NR/NS",
+          TRUE         ~ NA_character_),
+     raca_rec = case_when(
+          race == "1.0"  ~ "Preta",
+          race == "2.0"  ~ "Parda",
+          race == "3.0"  ~ "Branca",
+          race == "4.0"  ~ "Amarela",
+          race == "5.0"  ~ "Indígena",
+          race == "6.0"  ~ "Outros",
+          race == "99.0" ~ NA_character_,
+          TRUE           ~ NA_character_),
+    raca_rec = raca_rec |>
+          fct_relevel("Preta", "Parda", "Branca", "Amarela", "Indígena", "Outros"),
+     tipo_moradia_rec = case_when(
+          housetype1 == "1.0"  ~ "Cedido",
+          housetype1 == "2.0"  ~ "Alugado",
+          housetype1 == "3.0"  ~ "Próprio quitado",
+          housetype1 == "4.0"  ~ "Próprio pagando",
+          housetype1 == "5.0"  ~ "Outros",
+          housetype1 == "99.0" ~ NA_character_,
+          TRUE                 ~ housetype1
+    ),
+     )
+
+# df_aux |> select(ends_with("rec")) |> 
+#      dfSummary(round.digits = 2) |> 
+#      stview()
+
+#df |> filter(pmarry == "-") |> View()
+df_aux |> select(housetype1,tipo_moradia_rec,escolaridade_rec) |> dfSummary(round.digits = 2) |> 
+     stview()
 ```
