@@ -1,153 +1,283 @@
 ---
-title: "Laura Acevedo"
+title: "Análises Descritivas do Piloto (Laura Acevedo)"
+format: html
+editor: visual
+author: 
+  - Helder Lira
 ---
 
-This is a Quarto website.
-
-To learn more about Quarto websites visit <https://quarto.org/docs/websites>.
+```{r, include=FALSE}
+#| label: knitr options
+knitr::opts_chunk$set(results = 'asis',
+                      echo = FALSE,
+                      warning = FALSE,
+                      tidy = FALSE,
+                      message = FALSE,
+                      fig.align = 'center',
+                      out.width = "100%")
+options(knitr.table.format = "html")
+```
 
 ```{r}
-#| label: load packages
+#| label: packages
+#| echo: false
+
 library(tidyverse)
-library(readxl)
-library(summarytools)
-library(usethis)
-library(janitor)
+library(gtsummary)
+library(gtsummary)
+library(modelsummary)
+library(jtools)
+library(ggstatsplot)
+library(labelled)
+library(glue)
+library(correlation)
+library(GGally)
+library(jtools)
 ```
 
 ```{r}
-#| label: load data
-df <- read_excel("data_private/planilha_oficial_baseline_forms.xlsx", 
-    sheet = "09-01-2025", na = c("-")) |> 
-     clean_names()
+#| echo: false
+df <- readRDS(file = "data_private/df_no_nas.RDS")
+
+df_select <- df |> 
+     select(c(
+            idade, 
+            dplyr::ends_with("rec"),
+            dplyr::ends_with("rec2"),
+            dplyr::contains("gad"),
+            dplyr::contains("igi"),
+            dplyr::contains("phq")
+            ))
+```
+
+# Análise Descritiva
+
+```{r}
+#| label: sequencia das variáveis na tabela 1
+#| echo: false
+# Um vetor nomeado: nomes das variáveis = label tabela 1
+variaveis_labels <- c(
+  # Variáveis Categóricas
+  sexo_rec = "Sexo",
+  raca_rec = "Raça",
+  escolaridade_rec2 = "Escolaridade",
+  estado_civil_rec2 = "Estado Civil",
+  tipo_moradia_rec2 = "Moradia",
+  situacao_ocupacional_rec2 = "Situação Ocupacional",
+  renda_rec2 = "Renda",
+  suporte_social_rec = "Suporte Social (companhia)",
+  suporte_social2_rec = "Suporte Social (apoio)",
+  alcool = "Uso de Alcool", 
+  tabaco = "Uso de Tabaco",
+  phq9_cat_rec = "PHQ-9 (categorias)",
+  igi_cat_rec = "IGI (categorias)",
+  gad7_cat_rec = "GAD-7 (categorias)",
+
+  
+  # Variáveis Numéricas
+  idade = "Idade",
+  score_phq = "PHQ-9",
+  score_igi = "IGI",
+  score_gad = "GAD-7"
+)
+
+# Agora você faz tudo junto:
+df_select_ordered <- df_select |>
+  select(all_of(names(variaveis_labels))) |>   # seleciona na ordem
+  set_variable_labels(.labels = variaveis_labels)  # aplica labels de uma vez
 ```
 
 ```{r}
-#| label: recoding variables
-df_aux <- df |> 
-     mutate(
-     escolaridade_rec = case_when(
-          escolaridade == 1 ~ "Não frequentou escola",
-          escolaridade == 2 ~ "Ensino Fundamental",
-          escolaridade == 3 ~ "Ensino Médio",
-          escolaridade == 4 ~ "Ensino Técnico",
-          escolaridade == 5 ~ "Graduação - Tecnólogo",
-          escolaridade == 6 ~ "Graduação - Normal",
-          escolaridade == 7 ~ "Pós-graduação",
-          TRUE ~ as.character(escolaridade)),
-     escolaridade_rec = escolaridade_rec |>
-          fct_relevel(
-          "Não frequentou escola",
-          "Ensino Fundamental",
-          "Ensino Médio",
-          "Ensino Técnico",
-          "Graduação - Tecnólogo",
-          "Graduação - Normal",
-          "Pós-graduação"),
-     sexo_rec = case_when(
-          gender == "F" ~ "Feminino",
-          gender == "M" ~ "Masculino",
-          TRUE ~ NA_character_),
-     estado_civil_rec = case_when(
-          pmarry == 1  ~ "Casada",
-          pmarry == 2  ~ "União conjugal estável (informal / não no papel)",
-          pmarry == 3  ~ "Solteira",
-          pmarry == 4  ~ "Separada",
-          pmarry == 5  ~ "Desquitada ou Divorciada",
-          pmarry == 6  ~ "Viúva",
-          pmarry == 99 ~ NA_character_,
-          TRUE         ~ NA_character_),
-     raca_rec = case_when(
-          race == 1  ~ "Preta",
-          race == 2  ~ "Parda",
-          race == 3  ~ "Branca",
-          race == 4  ~ "Amarela",
-          race == 5  ~ "Indígena",
-          race == 6  ~ "Outros",
-          race == 99 ~ NA_character_,
-          TRUE ~ as.character(race)),
-    raca_rec = raca_rec |>
-          fct_relevel("Preta", "Parda", "Branca", "Amarela", "Indígena", "Outros"),
-     tipo_moradia_rec = case_when(
-          housetype1 == "1.0"  ~ "Cedido",
-          housetype1 == "2.0"  ~ "Alugado",
-          housetype1 == "3.0"  ~ "Próprio quitado",
-          housetype1 == "4.0"  ~ "Próprio pagando",
-          housetype1 == "5.0"  ~ "Outros",
-          housetype1 == "99.0" ~ NA_character_,
-          # TRUE                 ~ housetype1 #para ver as respostas
-          !is.na(housetype1)   ~ "Outros (especificado)"
-    ),
-     situacao_ocupacional_rec = case_when(
-          se1 == "1.0" ~ "Empregada",
-          se1 == "2.0" ~ "Autônoma",
-          se1 == "3.0" ~ "Desempregada",
-          se1 == "4.0" ~ "Estudante",
-          se1 == "5.0" ~ "Dona de casa",
-          se1 == "6.0" ~ "Aposentada",
-          se1 == "7.0" ~ "Outro (especificado)",
-          !is.na(se1)  ~ "Outro (especificado)",
-      TRUE         ~ NA_character_),
-    renda_rec = case_when(
-          income1 == 0 ~ "Nenhuma renda (R$ 0)",
-          income1 == 1  ~ "Nenhuma renda (R$ 0)",
-          income1 == 2  ~ "Até 1 salário mínimo (< R$ 1.412,00)",
-          income1 == 3  ~ "Até 2 salários mínimos (≤ R$ 2.824,00)",
-          income1 == 4  ~ "Até 3 salários mínimos (≤ R$ 4.236,00)",
-          income1 == 5  ~ "Até 4 salários mínimos (≤ R$ 5.648,00)",
-          income1 == 6  ~ "Até 5 salários mínimos (≤ R$ 7.060,00)",
-          income1 == 7  ~ "Até 6 salários mínimos (≤ R$ 8.472,00)",
-          income1 == 8  ~ "Até 7 salários mínimos (≤ R$ 9.884,00)",
-          income1 == 9  ~ "Até 8 salários mínimos (≤ R$ 11.296,00)",
-          income1 == 10 ~ "Até 9 salários mínimos (≤ R$ 12.708,00)",
-          income1 == 11 ~ "Até 10 salários mínimos (≤ R$ 14.120,00)",
-          income1 == 12 ~ "Mais que 10 salários mínimos (> R$ 14.120,00)",
-      TRUE          ~ as.character(income1)),
-    renda_rec = renda_rec |>
-         fct_relevel(
-        "Nenhuma renda (R$ 0)",
-        "Até 1 salário mínimo (< R$ 1.412,00)",
-        "Até 2 salários mínimos (≤ R$ 2.824,00)",
-        "Até 3 salários mínimos (≤ R$ 4.236,00)",
-        "Até 4 salários mínimos (≤ R$ 5.648,00)",
-        "Até 5 salários mínimos (≤ R$ 7.060,00)",
-        "Até 6 salários mínimos (≤ R$ 8.472,00)",
-        "Até 7 salários mínimos (≤ R$ 9.884,00)",
-        "Até 8 salários mínimos (≤ R$ 11.296,00)",
-        "Até 9 salários mínimos (≤ R$ 12.708,00)",
-        "Até 10 salários mínimos (≤ R$ 14.120,00)",
-        "Mais que 10 salários mínimos (> R$ 14.120,00)"
-      ),
-    suporte_social_rec = case_when(
-         ss1 == 1 ~ "Sim",
-         ss1 == 0 ~ "Não"),
-    suporte_social2_rec = case_when(
-         ss2 == 1 ~ "Sim",
-         ss2 == 0 ~ "Não")
+#| label: pacote {gtsummary}
+table_descriptives <- df_select_ordered |>
+     tbl_summary(
+          statistic = list(
+               all_continuous() ~ "{mean} ({sd}) ({min}-{max})",
+               all_categorical() ~ "{n} ({p}%)"), 
+          digits = all_continuous() ~ 2,
+          missing = "no") |> 
+     bold_labels() |> 
+     modify_header(label = "**Variável**")
+
+table_descriptives
+
+table_descriptives |> 
+     as_gt() |>
+     gt::gtsave(filename = "output/table1_2.docx")
+```
+
+```{r}
+
+# Pivot mais limpa
+df_long <- df_select_ordered |>
+  select(phq9_cat_rec, igi_cat_rec, gad7_cat_rec) |>
+  pivot_longer(
+    cols = everything(),
+    names_to = "instrumento",
+    values_to = "categoria"
+  ) |>
+  mutate(
+    instrumento = recode(instrumento,
+                         "phq9_cat_rec" = "PHQ-9",
+                         "igi_cat_rec" = "IGI",
+                         "gad7_cat_rec" = "GAD-7"),
+    categoria = as.factor(categoria), # forçar como texto!
+    categoria = fct_relevel(categoria, c("Nenhum/Leve", "Mínimo","Leve",  "Moderado", "Moderadamente Grave", "Grave"))
   )
+
+ggplot(df_long, aes(x = categoria, fill = instrumento)) +
+  geom_bar(position = "dodge") +
+  facet_wrap(~ instrumento, scales = "free_x") +
+  labs(
+    title = "Distribuição das categorias por instrumento",
+    x = "Categoria",
+    y = "Frequência"
+  ) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+# Correlação
+
+```{r}
+#| label: correlação
+
+table_correlation <- datasummary_correlation(df_select_ordered)
+
+ggcorr(df_select_ordered, 
+       low = "#F21A00", 
+       mid = "#EEEEEE", 
+       high = "#3B9AB2",
+       name = "Correlação 
+de Pearson
+", 
+       label = TRUE,
+       label_size = 4,
+       label_alpha = TRUE,
+       hjust = 0.58, 
+       size = 4, 
+       color = "grey50")
 ```
 
 ```{r}
-#| label: labels and dfSummary |> stview
+#| eval: false
+#| echo: false
+# 1. Vetor de variáveis explicativas
+variaveis_explicativas <- c(
+  "sexo_rec",
+  "raca_rec",
+  "escolaridade_rec2",
+  "idade",
+  "score_phq",
+  "score_gad"
+)
 
-label(df$income1) <- "Essa variável parece ter um problema, visto que não deveria ser possível a categoria 0"
-label(df_aux$renda_rec) <- "Respondentes da categoria 0 foram transformados em Nenhuma Renda"
+# 2. Função geral de regressão
+rodar_regressao <- function(dep_var, ind_var) {
+  formula_reg <- as.formula(paste(dep_var, "~", ind_var))
+  lm(formula = formula_reg, data = df_select_ordered)
+}
 
-df_aux |> select(
-                 risk,
-                 escolaridade, escolaridade_rec, 
-                 gender, sexo_rec,
-                 pmarry, estado_civil_rec,
-                 raca_rec, race,
-                 housetype1,tipo_moradia_rec,
-                 situacao_ocupacional_rec, se1,
-                 score_phq, score_gad, score_igi,
-                 status_phq, status_gad, status_igi,
-                 income1, renda_rec,
-                 ss1, suporte_social_rec,
-                 ss2, suporte_social2_rec
-                 ) |> 
-     dfSummary(round.digits = 2, labels.col = TRUE ) |> 
-     stview()
+# 3. Fixar a variável dependente, e mapear nas independentes
+lista_modelos <- map(
+  variaveis_explicativas,
+  ~ rodar_regressao(dep_var = "score_igi", ind_var = .x)
+)
 
+# 4. Nomear os modelos
+names(lista_modelos) <- paste0("Modelo: ", variaveis_explicativas)
+
+# 5. Mostrar com modelsummary
+modelsummary(
+  models = lista_modelos,
+  estimate = "{estimate}{stars} [{conf.low}, {conf.high}]",
+  stars = c('*' = .05, '**' = .01),
+  statistic = NULL,
+  gof_omit = 'Log.Lik|RMSE',
+  fmt = 2,
+  notes = "* p < 0.05, ** p < 0.001"
+)
 ```
+
+```{r}
+#| label: função gráfico
+#| eval: false
+#| echo: false
+
+graph <- function(x, y) {
+  
+  # Capturar os nomes
+  x_name <- x
+  y_name <- y
+
+  # Criar o gráfico
+  plot <- ggbetweenstats(
+    data = df_select_ordered, 
+    x = !!sym(x),
+    y = !!sym(y),
+    pairwise.display = "s",
+    violin.args = list(width = 0, linewidth = 0),
+    bf.message = FALSE
+  )
+  
+  # Salvar o gráfico
+  ggsave(
+    filename = glue("img/{x_name}_{y_name}.png"),
+    plot = plot,
+    width = 10,
+    height = 6,
+    dpi = 300
+  )
+}
+
+# Variáveis categóricas (independentes)
+vars <- df_select_ordered |> 
+  select(!where(is.numeric)) |> 
+  names()
+
+# Agora: usar map() corretamente passando também o y fixo
+map(vars, ~ graph(x = .x, y = "score_igi"))
+map(vars, ~ graph(x = .x, y = "score_phq"))
+map(vars, ~ graph(x = .x, y = "score_gad"))
+```
+
+# Gráficos
+
+<details>
+
+<summary>📊 Gráficos IGI-Score</summary>
+
+```{r}
+#| echo: false
+
+imagens <- list.files(path = "img/", pattern = "\\igi.png$", full.names = TRUE)
+knitr::include_graphics(imagens)
+```
+
+</details>
+
+<details>
+
+<summary>📊 Gráficos PHQ-Score</summary>
+
+```{r}
+#| echo: false
+
+imagens <- list.files(path = "img/", pattern = "\\phq.png$", full.names = TRUE)
+knitr::include_graphics(imagens)
+```
+
+</details>
+
+<details>
+
+<summary>📊 Gráficos GAD7-Score</summary>
+
+```{r}
+#| echo: false
+
+imagens <- list.files(path = "img/", pattern = "\\gad.png$", full.names = TRUE)
+knitr::include_graphics(imagens)
+```
+
+</details>
