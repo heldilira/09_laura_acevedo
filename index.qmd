@@ -1,9 +1,5 @@
 ---
 title: "Análises Descritivas do Piloto (Laura Acevedo)"
-format: html
-editor: visual
-author: 
-  - Helder Lira
 ---
 
 ```{r, include=FALSE}
@@ -46,7 +42,8 @@ df_select <- df |>
             dplyr::ends_with("rec2"),
             dplyr::contains("gad"),
             dplyr::contains("igi"),
-            dplyr::contains("phq")
+            dplyr::contains("phq"),
+            alcool, tabaco
             ))
 ```
 

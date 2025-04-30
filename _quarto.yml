@@ -1,6 +1,8 @@
 project:
   type: website
-
+  output-dir: docs
+author: 
+  - Helder Lira
 website:
   title: "09_laura_acevedo"
   navbar:
@@ -16,4 +18,5 @@ format:
     toc: true
 
 editor: visual
+
 

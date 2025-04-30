@@ -11,3 +11,4 @@
 
 # Ignore sensitive data
 data_private/
+_site/
