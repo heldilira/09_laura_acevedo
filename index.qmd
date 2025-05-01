@@ -29,6 +29,7 @@ library(glue)
 library(correlation)
 library(GGally)
 library(jtools)
+library(reactable)
 ```
 
 ```{r}
