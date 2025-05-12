@@ -4,7 +4,7 @@ project:
 author: 
   - Helder Lira
 website:
-  title: "09_laura_acevedo"
+  title: "Laura Acevedo (análises)"
   navbar:
     left:
       - href: index.qmd

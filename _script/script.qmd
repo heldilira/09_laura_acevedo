@@ -160,11 +160,26 @@ df_aux <- df |>
           fct_relevel("Uma vez por mês ou menos", "Duas a quatro vezes por mês"),
     tabaco = case_when(
          tabacco3 == 0 ~ "Não",
-         tabacco3 == 1 ~ "Sim")
+         tabacco3 == 1 ~ "Sim"),
+    tratamento_emocional_hist = case_when(
+         ms1 == 1 ~ "Sim",
+         ms1 == 0 ~ "Não"
+    ),
+    tratamento_emocional_atual = case_when(
+         psychtr == 1 ~ "Sim",
+         psychtr == 0 ~ "Não"
+    ),
+    medicamento_emocional_atual = case_when(
+         ms4 == 1 ~ "Sim",
+         ms4 == 0 ~ "Não"
+    )
     )
 
-df_aux |> 
-     select(contains("audit1"), alcool, tabaco) |> dfSummary() |> stview()
+# df_aux |> 
+#      select(tratamento_emocional_hist, ms1,
+#             tratamento_emocional_atual, psychtr,
+#             medicamento_emocional_atual, ms4
+#             ) |> dfSummary() |> stview()
 ```
 
 ```{r}
@@ -215,11 +230,11 @@ df_aux <- df_aux |>
 
 # Quem não respondeu escolaridade (por exemplo) não respondeu: estado civil, raça, tipo_moradia, situação ocupacional, renda, ss1, ss2 etc
 
-df_no_nas <- df_aux |> 
+df_final <- df_aux |> 
      filter(!is.na(escolaridade_rec)) # |> 
      #dfSummary(round.digits = 2) |> 
      #stview()
-saveRDS(df_no_nas, file = "data_private/df_no_nas.RDS")
+saveRDS(df_final, file = "data_private/df_final.RDS")
 ```
 
 ```         

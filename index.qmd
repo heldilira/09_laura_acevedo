@@ -30,11 +30,12 @@ library(correlation)
 library(GGally)
 library(jtools)
 library(reactable)
+library(easystats)
 ```
 
 ```{r}
 #| echo: false
-df <- readRDS(file = "data_private/df_no_nas.RDS")
+df <- readRDS(file = "data_private/df_final.RDS")
 
 df_select <- df |> 
      select(c(
@@ -44,7 +45,8 @@ df_select <- df |>
             dplyr::contains("gad"),
             dplyr::contains("igi"),
             dplyr::contains("phq"),
-            alcool, tabaco
+            alcool, tabaco,
+            dplyr::contains("emocional")
             ))
 ```
 
@@ -70,6 +72,9 @@ variaveis_labels <- c(
   phq9_cat_rec = "PHQ-9 (categorias)",
   igi_cat_rec = "IGI (categorias)",
   gad7_cat_rec = "GAD-7 (categorias)",
+  tratamento_emocional_hist = "Tratamento Psico/Psiq (histórico)", 
+  tratamento_emocional_atual = "Tratamento Psico/Psiq (atual)",
+  medicamento_emocional_atual = "Uso de Medicamentos (sintomas emocionais)",
 
   
   # Variáveis Numéricas
@@ -160,15 +165,69 @@ de Pearson
 ```{r}
 #| eval: false
 #| echo: false
-# 1. Vetor de variáveis explicativas
-variaveis_explicativas <- c(
-  "sexo_rec",
-  "raca_rec",
-  "escolaridade_rec2",
-  "idade",
-  "score_phq",
-  "score_gad"
+#| label: regression assumptions
+
+# Fit model
+reg <- lm(formula = score_igi ~ sexo_rec, data = df_select)
+
+step_regression <- modelsummary(
+  models = list("Model (DV = IGI Score)" = reg), 
+  estimate = "{estimate}{stars} [{conf.low}, {conf.high}]",
+  stars = c('*' =.05, '**' = .01),
+  statistic = NULL,
+  gof_omit = 'Log.Lik|RMSE',
+  fmt = 2, 
+  notes = "* p < 0.05, ** p < 0.001")
+step_regression
+# Generate checks
+check_model(reg) 
+check_normality(reg)
+check_heteroscedasticity(reg)
+check_autocorrelation(reg)
+check_collinearity(reg)
+
+library(gtsummary)
+library(broom)
+library(dplyr)
+
+# Coletar os dados da regressão
+reg_summary <- tidy(reg, conf.int = TRUE) |>
+  mutate(
+    beta = sprintf("%.2f", estimate),
+    conf_int = sprintf("[%.2f, %.2f]", conf.low, conf.high),
+    p_value = sprintf("%.3f", p.value)
+  ) |>
+  select(term, beta, conf_int, p_value)
+
+# Pegar o R² separadamente
+r_squared <- glance(reg)$r.squared |>
+  round(3)
+
+# Adicionar R² como linha extra
+reg_summary <- bind_rows(
+  reg_summary,
+  tibble(term = "R²", beta = as.character(r_squared), conf_int = "", p_value = "")
 )
+
+# Gerar a tabela final com gtsummary
+reg_summary |>
+  rename_with(~ stringr::str_to_title(.x)) |>
+  gt::gt()
+```
+
+```{r}
+#| eval: false
+#| echo: false
+
+# 1. Vetor de variáveis explicativas
+# variaveis_explicativas <- df_select_ordered |> 
+#      select(!where(is.numeric)) |> names()
+
+# Variáveis categóricas (independentes)
+vars <- df_select_ordered |> 
+  select(!where(is.numeric)) |>
+     select(-matches("gad|igi|phq", ignore.case = TRUE)) |> 
+  names()
 
 # 2. Função geral de regressão
 rodar_regressao <- function(dep_var, ind_var) {
@@ -178,12 +237,12 @@ rodar_regressao <- function(dep_var, ind_var) {
 
 # 3. Fixar a variável dependente, e mapear nas independentes
 lista_modelos <- map(
-  variaveis_explicativas,
+  vars,
   ~ rodar_regressao(dep_var = "score_igi", ind_var = .x)
 )
 
 # 4. Nomear os modelos
-names(lista_modelos) <- paste0("Modelo: ", variaveis_explicativas)
+names(lista_modelos) <- paste0("Modelo: ", vars)
 
 # 5. Mostrar com modelsummary
 modelsummary(
@@ -195,11 +254,13 @@ modelsummary(
   fmt = 2,
   notes = "* p < 0.05, ** p < 0.001"
 )
+
+
 ```
 
 ```{r}
 #| label: função gráfico
-#| eval: false
+#| eval: true
 #| echo: false
 
 graph <- function(x, y) {
@@ -230,13 +291,14 @@ graph <- function(x, y) {
 
 # Variáveis categóricas (independentes)
 vars <- df_select_ordered |> 
-  select(!where(is.numeric)) |> 
+  select(!where(is.numeric)) |>
+     select(-matches("gad|igi|phq", ignore.case = TRUE)) |> 
   names()
 
 # Agora: usar map() corretamente passando também o y fixo
-map(vars, ~ graph(x = .x, y = "score_igi"))
-map(vars, ~ graph(x = .x, y = "score_phq"))
-map(vars, ~ graph(x = .x, y = "score_gad"))
+invisible(map(vars, ~ graph(x = .x, y = "score_igi")))
+invisible(map(vars, ~ graph(x = .x, y = "score_phq")))
+invisible(map(vars, ~ graph(x = .x, y = "score_gad")))
 ```
 
 # Gráficos
