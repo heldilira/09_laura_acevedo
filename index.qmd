@@ -1,5 +1,8 @@
 ---
 title: "Análises Descritivas do Piloto (Laura Acevedo)"
+format:
+  html:
+    css: styles.css
 ---
 
 ```{r, include=FALSE}
@@ -20,7 +23,6 @@ options(knitr.table.format = "html")
 
 library(tidyverse)
 library(gtsummary)
-library(gtsummary)
 library(modelsummary)
 library(jtools)
 library(ggstatsplot)
@@ -31,6 +33,9 @@ library(GGally)
 library(jtools)
 library(reactable)
 library(easystats)
+library(broom)
+library(gt)
+library(kableExtra)
 ```
 
 ```{r}
@@ -75,13 +80,15 @@ variaveis_labels <- c(
   tratamento_emocional_hist = "Tratamento Psico/Psiq (histórico)", 
   tratamento_emocional_atual = "Tratamento Psico/Psiq (atual)",
   medicamento_emocional_atual = "Uso de Medicamentos (sintomas emocionais)",
+  
 
   
   # Variáveis Numéricas
   idade = "Idade",
   score_phq = "PHQ-9",
   score_igi = "IGI",
-  score_gad = "GAD-7"
+  score_gad = "GAD-7",
+  igi_cat_vd = "Igi (VD)"
 )
 
 # Agora você faz tudo junto:
@@ -110,6 +117,7 @@ table_descriptives |>
 ```
 
 ```{r}
+#| lable: gráfico
 
 # Pivot mais limpa
 df_long <- df_select_ordered |>
@@ -145,8 +153,6 @@ ggplot(df_long, aes(x = categoria, fill = instrumento)) +
 ```{r}
 #| label: correlação
 
-table_correlation <- datasummary_correlation(df_select_ordered)
-
 ggcorr(df_select_ordered, 
        low = "#F21A00", 
        mid = "#EEEEEE", 
@@ -160,184 +166,202 @@ de Pearson
        hjust = 0.58, 
        size = 4, 
        color = "grey50")
-```
 
-```{r}
-#| eval: false
-#| echo: false
-#| label: regression assumptions
+# Tabelinha com Estrelas
+table_correlation <- datasummary_correlation(df_select_ordered)
 
-# Fit model
-reg <- lm(formula = score_igi ~ sexo_rec, data = df_select)
-
-step_regression <- modelsummary(
-  models = list("Model (DV = IGI Score)" = reg), 
-  estimate = "{estimate}{stars} [{conf.low}, {conf.high}]",
-  stars = c('*' =.05, '**' = .01),
-  statistic = NULL,
-  gof_omit = 'Log.Lik|RMSE',
-  fmt = 2, 
-  notes = "* p < 0.05, ** p < 0.001")
-step_regression
-# Generate checks
-check_model(reg) 
-check_normality(reg)
-check_heteroscedasticity(reg)
-check_autocorrelation(reg)
-check_collinearity(reg)
-
-library(gtsummary)
-library(broom)
-library(dplyr)
-
-# Coletar os dados da regressão
-reg_summary <- tidy(reg, conf.int = TRUE) |>
-  mutate(
-    beta = sprintf("%.2f", estimate),
-    conf_int = sprintf("[%.2f, %.2f]", conf.low, conf.high),
-    p_value = sprintf("%.3f", p.value)
-  ) |>
-  select(term, beta, conf_int, p_value)
-
-# Pegar o R² separadamente
-r_squared <- glance(reg)$r.squared |>
-  round(3)
-
-# Adicionar R² como linha extra
-reg_summary <- bind_rows(
-  reg_summary,
-  tibble(term = "R²", beta = as.character(r_squared), conf_int = "", p_value = "")
-)
-
-# Gerar a tabela final com gtsummary
-reg_summary |>
-  rename_with(~ stringr::str_to_title(.x)) |>
-  gt::gt()
-```
-
-```{r}
-#| eval: false
-#| echo: false
-
-# 1. Vetor de variáveis explicativas
-# variaveis_explicativas <- df_select_ordered |> 
-#      select(!where(is.numeric)) |> names()
-
-# Variáveis categóricas (independentes)
-vars <- df_select_ordered |> 
-  select(!where(is.numeric)) |>
-     select(-matches("gad|igi|phq", ignore.case = TRUE)) |> 
-  names()
-
-# 2. Função geral de regressão
-rodar_regressao <- function(dep_var, ind_var) {
-  formula_reg <- as.formula(paste(dep_var, "~", ind_var))
-  lm(formula = formula_reg, data = df_select_ordered)
+fun = function(x) {
+    out = correlation(x)
+    stars = c('*' =.05, '**' = .01)
+    p = modelsummary:::make_stars(out$p, stars)
+    out$r = sprintf("%.2f%s", out$r, p)
+    out = as.matrix(out)
+    return(out)
 }
 
-# 3. Fixar a variável dependente, e mapear nas independentes
-lista_modelos <- map(
-  vars,
-  ~ rodar_regressao(dep_var = "score_igi", ind_var = .x)
-)
+table_correlation_stars <- datasummary_correlation(df_select_ordered, method = fun, )
 
-# 4. Nomear os modelos
-names(lista_modelos) <- paste0("Modelo: ", vars)
-
-# 5. Mostrar com modelsummary
-modelsummary(
-  models = lista_modelos,
-  estimate = "{estimate}{stars} [{conf.low}, {conf.high}]",
-  stars = c('*' = .05, '**' = .01),
-  statistic = NULL,
-  gof_omit = 'Log.Lik|RMSE',
-  fmt = 2,
-  notes = "* p < 0.05, ** p < 0.001"
-)
-
-
+table_correlation_stars
 ```
 
 ```{r}
-#| label: função gráfico
-#| eval: true
+#| results: markup
+# Report dos resultados
+cor.test(df_select_ordered$score_phq, df_select_ordered$score_igi, use = "complete.obs") |> report() |> print()
+
+cor.test(df_select_ordered$score_gad, df_select_ordered$score_igi, use = "complete.obs") |> report() |> print()
+
+cor.test(df_select_ordered$score_gad, df_select_ordered$score_phq, use = "complete.obs") |> report() |> print()
+```
+
+# Tabelas Regressão Linear
+
+```{r}
+#| label: tabelas-reg-completo
 #| echo: false
+#| results: asis
 
-graph <- function(x, y) {
-  
-  # Capturar os nomes
-  x_name <- x
-  y_name <- y
-
-  # Criar o gráfico
-  plot <- ggbetweenstats(
-    data = df_select_ordered, 
-    x = !!sym(x),
-    y = !!sym(y),
-    pairwise.display = "s",
-    violin.args = list(width = 0, linewidth = 0),
-    bf.message = FALSE
-  )
-  
-  # Salvar o gráfico
-  ggsave(
-    filename = glue("img/{x_name}_{y_name}.png"),
-    plot = plot,
-    width = 10,
-    height = 6,
-    dpi = 300
-  )
-}
-
-# Variáveis categóricas (independentes)
-vars <- df_select_ordered |> 
-  select(!where(is.numeric)) |>
-     select(-matches("gad|igi|phq", ignore.case = TRUE)) |> 
+# 1) vetor das IVs categóricas
+vars_cat <- df_select_ordered |>  
+  select(!where(is.numeric))  |>  
+  select(-matches("igi_cat_rec|gad7_cat_rec|phq9_cat_rec", ignore.case = TRUE)) |>  
   names()
 
-# Agora: usar map() corretamente passando também o y fixo
-invisible(map(vars, ~ graph(x = .x, y = "score_igi")))
-invisible(map(vars, ~ graph(x = .x, y = "score_phq")))
-invisible(map(vars, ~ graph(x = .x, y = "score_gad")))
+# 2) vetor dos scores numéricos
+dvs <- c("score_igi", "score_gad", "score_phq")
+
+# 3) função que roda lm(Y ~ X) para cada IV (incluindo os dois scores que não sejam Y)
+table_regression <- function(y_name, data = df_select_ordered) {
+  
+  # combinar categóricas + scores (tirando a própria DV)
+  ivs <- c(vars_cat, setdiff(dvs, y_name))
+  
+  # ajustar cada modelo e extrair tidy + glance
+  res <- map_dfr(ivs, function(iv_var) {
+    mdl <- lm(as.formula(paste(y_name, "~", iv_var)), data = data)
+    td  <- tidy(mdl, conf.int = TRUE) %>% filter(term != "(Intercept)")
+    gl  <- glance(mdl)
+    
+    td %>% 
+      mutate(
+        iv         = iv_var,
+        estimate   = sprintf(
+                       "%.2f%s [%.2f, %.2f]",
+                       estimate,
+                       case_when(
+                         p.value < .01 ~ "**",
+                         p.value < .05 ~ "*",
+                         TRUE          ~ ""
+                       ),
+                       conf.low,
+                       conf.high
+                     ),
+        p_value    = sprintf("%.3f", p.value),
+        N          = gl$nobs,
+        R2         = round(gl$r.squared, 3)
+      )
+  })
+  
+  # montar a tabela GT
+  res %>% 
+    select(iv, term, estimate, p_value, N, R2) |>  
+    gt(rowname_col = "iv") |>  
+    tab_header(title = glue("Regressões: DV = {y_name}")) %>% 
+    cols_label(
+      iv         = "Variável",
+      term       = "Termo",
+      estimate   = "β [IC 95%]",
+      p_value    = "p-valor",
+      N          = "N",
+      R2         = "R²"
+    )
+}
 ```
 
-# Gráficos
-
-<details>
-
-<summary>📊 Gráficos IGI-Score</summary>
+## Preditores do IGI
 
 ```{r}
 #| echo: false
-
-imagens <- list.files(path = "img/", pattern = "\\igi.png$", full.names = TRUE)
-knitr::include_graphics(imagens)
+#| results: asis
+table_regression("score_igi")
 ```
 
-</details>
-
-<details>
-
-<summary>📊 Gráficos PHQ-Score</summary>
+## Preditores do GAD-7
 
 ```{r}
 #| echo: false
-
-imagens <- list.files(path = "img/", pattern = "\\phq.png$", full.names = TRUE)
-knitr::include_graphics(imagens)
+#| results: asis
+table_regression("score_gad")
 ```
 
-</details>
-
-<details>
-
-<summary>📊 Gráficos GAD7-Score</summary>
+## Preditores do PHQ-9
 
 ```{r}
 #| echo: false
-
-imagens <- list.files(path = "img/", pattern = "\\gad.png$", full.names = TRUE)
-knitr::include_graphics(imagens)
+#| results: asis
+table_regression("score_phq")
 ```
 
-</details>
+# Tabela Regressão Logística
+
+-   Não insone = IGI \< 15
+
+-   Insone = IGI \>= 15
+
+```{r}
+#| label: logit-univ-final
+#| echo: false
+#| results: asis
+#| warning: false
+#| message: false
+
+# 0) garantir que DV seja binária
+df <- df_select_ordered %>% 
+  mutate(igi_cat_vd = factor(igi_cat_vd, levels = c("Não Insone","Insone")))
+
+# 1) vetor das IVs
+ivs <- df %>% 
+  select(
+    !where(is.numeric),
+    -matches("igi_cat_rec|gad7_cat_rec|phq9_cat_rec|igi_cat_vd", ignore.case = TRUE)
+  ) %>% 
+  names()
+
+# 2) para cada IV, ajustar glm univariado e empilhar resultados
+tab_log <- map_dfr(ivs, function(iv) {
+  # ajuste
+  mdl <- glm(
+    formula = as.formula(glue("igi_cat_vd ~ {iv}")),
+    data    = df,
+    family  = binomial(link = "logit")
+  )
+  # tidy com OR e IC
+  td <- tidy(mdl, exponentiate = TRUE, conf.int = TRUE) %>%
+    filter(term != "(Intercept)")
+  gl <- glance(mdl)
+  
+  # montar tibble com Variável, Categoria e indicadores
+  td %>%
+    transmute(
+      Variável  = iv,
+      Categoria = str_remove(term, paste0("^", iv)),
+      OR_num    = estimate,
+      CI_low    = conf.low,
+      CI_high   = conf.high,
+      pval_num  = p.value,
+      N         = gl$nobs,
+      `Pseudo R²` = round(1 - gl$deviance / gl$null.deviance, 3),
+      AIC       = round(AIC(mdl), 1),
+      BIC       = round(BIC(mdl), 1)
+    ) %>%
+    mutate(
+      # formata OR + estrelas
+      sig   = case_when(
+                pval_num < 0.001 ~ "***",
+                pval_num < 0.01  ~ "**",
+                pval_num < 0.05  ~ "*",
+                TRUE             ~ ""
+              ),
+      OR    = sprintf("%.2f%s", OR_num, sig),
+      `IC 95%`  = sprintf("[%.2f, %.2f]", CI_low, CI_high),
+      `p-valor` = if_else(pval_num < 0.001, "< .001", sprintf("%.3f", pval_num))
+    ) %>%
+    select(Variável, Categoria, OR, `IC 95%`, `p-valor`, N, `Pseudo R²`, AIC, BIC)
+})
+
+# 3) renderizar com GT
+tab_log %>%
+  gt() %>%
+  tab_header("Logistic Regression (univariada) — DV = igi_cat_vd") %>%
+  cols_label(
+    Variável  = "Variável",
+    Categoria = "Categoria",
+    OR        = "OR",
+    `IC 95%`  = "IC 95%",
+    `p-valor` = "p-valor",
+    N         = "N",
+    `Pseudo R²` = "Pseudo R²",
+    AIC       = "AIC",
+    BIC       = "BIC"
+  )
+```

@@ -19,7 +19,7 @@ library(modelsummary)
 #| label: load data
 df <- read_excel("data_private/planilha_oficial_baseline_forms.xlsx", 
     sheet = "09-01-2025", na = c("-")) |> 
-     clean_names()
+     janitor::clean_names()
 ```
 
 ```{r}
@@ -146,7 +146,12 @@ df_aux <- df |>
          score_igi >= 15 & score_igi <= 21 ~ "Moderado",
          score_igi >= 22 & score_igi <= 28 ~ "Grave"),
     phq9_cat_rec = phq9_cat_rec |> 
-         fct_relevel("Nenhum/Leve", "Leve", "Moderado", "Moderadamente Grave", "Grave"), 
+         fct_relevel("Nenhum/Leve", "Leve", "Moderado", "Moderadamente Grave", "Grave"),
+    igi_cat_vd = case_when(
+         score_igi >= 0 & score_igi <  15  ~ "Não Insone",
+         score_igi >= 15 ~ "Insone"),
+    phq9_cat_rec = phq9_cat_rec |> 
+         fct_relevel("Nenhum/Leve", "Leve", "Moderado", "Moderadamente Grave", "Grave"),
     gad7_cat_rec = gad7_cat_rec |> 
          fct_relevel("Mínimo", "Leve", "Moderado", "Grave"), 
     igi_cat_rec = igi_cat_rec |>

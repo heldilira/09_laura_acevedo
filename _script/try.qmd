@@ -1,0 +1,196 @@
+---
+title: "try"
+format: html
+editor: visual
+---
+
+```{r}
+#| eval: false
+#| echo: false
+#| label: regression assumptions
+
+# Fit model
+reg <- lm(formula = score_igi ~ sexo_rec, data = df_select)
+
+step_regression <- modelsummary(
+  models = list("Model (DV = IGI Score)" = reg),
+  output    = "data.frame",
+  estimate = "{estimate}{stars} [{conf.low}, {conf.high}]",
+  stars = c('*' =.05, '**' = .01),
+  statistic = NULL,
+  gof_omit = 'Log.Lik|RMSE',
+  fmt = 2, 
+  notes = "* p < 0.05, ** p < 0.001")
+
+
+step_regression
+# 2) Filtre só os termos das IVs (sem intercepto) e selecione o que interessa
+df_coef <- step_regression |> 
+  filter(term != "(Intercept)") |> 
+  select(term, estimate, contains("model"))
+
+# 3) Pivot para WIDE
+df_wide <- df_coef |> 
+  pivot_wider(
+    names_from  = model,
+    values_from = estimate
+  )
+
+print(df_wide)
+```
+
+```{r}
+#| eval: false
+#| echo: false
+
+# 1. Vetor de variáveis explicativas
+# variaveis_explicativas <- df_select_ordered |> 
+#      select(!where(is.numeric)) |> names()
+
+# Variáveis categóricas (independentes)
+vars <- df_select_ordered |> 
+  select(!where(is.numeric)) |>
+     select(-matches("gad|igi|phq", ignore.case = TRUE)) |> 
+  names()
+
+# 2. Função geral de regressão
+rodar_regressao <- function(dep_var, ind_var) {
+  formula_reg <- as.formula(paste(dep_var, "~", ind_var))
+  lm(formula = formula_reg, data = df_select_ordered)
+}
+
+# 3. Fixar a variável dependente, e mapear nas independentes
+lista_modelos <- map(
+  vars,
+  ~ rodar_regressao(dep_var = "score_igi", ind_var = .x)
+)
+
+# 4. Nomear os modelos
+names(lista_modelos) <- paste0("Modelo: ", vars)
+
+# 5. Mostrar com modelsummary
+modelsummary(
+  models = lista_modelos,
+  estimate = "{estimate}{stars} [{conf.low}, {conf.high}]",
+  stars = c('*' = .05, '**' = .01),
+  statistic = NULL,
+  gof_omit = 'Log.Lik|RMSE',
+  fmt = 2,
+  notes = "* p < 0.05, ** p < 0.001"
+)
+```
+
+```{r}
+library(dplyr)
+library(modelsummary)
+
+# 1) monte a lista com nomes curtos
+models <- list(
+  IGI = lm(score_igi ~ sexo_rec, data = df_select),
+  GAD = lm(score_gad ~ sexo_rec, data = df_select),
+  PHQ = lm(score_phq ~ sexo_rec, data = df_select)
+)
+
+# 2) puxe tudo num data.frame
+step_regression <- modelsummary(
+  models,
+  output    = "data.frame",
+  estimate  = "{estimate}{stars} [{conf.low}, {conf.high}]",
+  stars     = c('*' = .05, '**' = .01),
+  statistic = NULL,
+  gof_omit  = 'Log.Lik|RMSE',
+  fmt       = 2
+)
+
+# 3) filtre só os coeficientes (sem intercepto) e remova colunas auxiliares
+df_wide <- step_regression %>%
+  filter(part == "estimates", term != "(Intercept)") %>%
+  select(-part, -statistic)
+
+# veja o resultado
+df_wide
+```
+
+```{r}
+#| label: função gráfico
+#| eval: true
+#| echo: false
+
+graph <- function(x, y) {
+  
+  # Capturar os nomes
+  x_name <- x
+  y_name <- y
+
+  # Criar o gráfico
+  plot <- ggbetweenstats(
+    data = df_select_ordered, 
+    x = !!sym(x),
+    y = !!sym(y),
+    pairwise.display = "s",
+    violin.args = list(width = 0, linewidth = 0),
+    bf.message = FALSE
+  )
+  
+  # Salvar o gráfico
+  ggsave(
+    filename = glue("img/{x_name}_{y_name}.png"),
+    plot = plot,
+    width = 10,
+    height = 6,
+    dpi = 300
+  )
+}
+
+# Variáveis categóricas (independentes)
+vars <- df_select_ordered |> 
+  select(!where(is.numeric)) |>
+     select(-matches("gad|igi|phq", ignore.case = TRUE)) |> 
+  names()
+
+# Agora: usar map() corretamente passando também o y fixo
+invisible(map(vars, ~ graph(x = .x, y = "score_igi")))
+invisible(map(vars, ~ graph(x = .x, y = "score_phq")))
+invisible(map(vars, ~ graph(x = .x, y = "score_gad")))
+```
+
+# Gráficos
+
+<details>
+
+<summary>📊 Gráficos IGI-Score</summary>
+
+```{r}
+#| echo: false
+
+imagens <- list.files(path = "img/", pattern = "\\igi.png$", full.names = TRUE)
+knitr::include_graphics(imagens)
+```
+
+</details>
+
+<details>
+
+<summary>📊 Gráficos PHQ-Score</summary>
+
+```{r}
+#| echo: false
+
+imagens <- list.files(path = "img/", pattern = "\\phq.png$", full.names = TRUE)
+knitr::include_graphics(imagens)
+```
+
+</details>
+
+<details>
+
+<summary>📊 Gráficos GAD7-Score</summary>
+
+```{r}
+#| echo: false
+
+imagens <- list.files(path = "img/", pattern = "\\gad.png$", full.names = TRUE)
+knitr::include_graphics(imagens)
+```
+
+</details>
