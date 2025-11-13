@@ -40,6 +40,8 @@ library(officer)
 library(huxtable)
 library(flextable)
 library(summarytools)
+library(cardx)
+library(broom)
 ```
 
 ```{r}
@@ -73,6 +75,7 @@ variaveis_labels <- c(
   estado_civil_rec2 = "Marital Status",
   tipo_moradia_rec2 = "Housing Type",
   situacao_ocupacional_rec2 = "Employment Status",
+  idade = "Age",
   renda_rec2 = "Income",
   suporte_social_rec = "Social Support (company)",
   suporte_social2_rec = "Social Support (emotional support)",
@@ -86,7 +89,6 @@ variaveis_labels <- c(
   medicamento_emocional_atual = "Medication Use (emotional symptoms)",
   
   # Numeric Variables
-  idade = "Age",
   score_phq = "PHQ-9 Score",
   score_igi = "IGI Score",
   score_gad = "GAD-7 Score",
@@ -100,9 +102,10 @@ df_select_ordered <- df_select |>
 ```
 
 ```{r}
-#| label: tabela 1 - pacote {gtsummary}
+#| label: tabela 1 & 2 - pacote {gtsummary}
 
-table_descriptives <- df_select_ordered |>
+tbl1 <- df_select_ordered |> 
+     select(sexo_rec:tabaco, igi_cat_vd) |> 
      tbl_summary(
           by = igi_cat_vd,
           statistic = list(
@@ -114,11 +117,29 @@ table_descriptives <- df_select_ordered |>
      bold_labels() |> 
      modify_header(label = "**Variável**")
 
-table_descriptives
+tbl2 <- df_select_ordered |> 
+     select(phq9_cat_rec:dplyr::last_col(), igi_cat_vd) |> 
+     tbl_summary(
+          by = igi_cat_vd,
+          statistic = list(
+               all_continuous() ~ "{mean} ({sd}) ({min}-{max})",
+               all_categorical() ~ "{n} ({p}%)"), 
+          digits = all_continuous() ~ 2,
+          missing = "no") |> 
+        add_p() |> 
+     bold_labels() |> 
+     modify_header(label = "**Variável**")
 
-table_descriptives |> 
+tbl1 |> 
      as_gt() |>
-     gt::gtsave(filename = "output/table1_3.docx")
+     gt::gtsave(filename = "output/table1.docx")
+
+tbl2 |> 
+     as_gt() |>
+     gt::gtsave(filename = "output/table2.docx")
+
+tbl1
+tbl2
 ```
 
 ```{r}
@@ -426,4 +447,35 @@ tab_log %>%
     AIC       = "AIC",
     BIC       = "BIC"
   )
+```
+
+# Regressões
+
+```{r}
+#| label: Barbara - Tabela pelo pacote {modelsummary}
+#| eval: FALSE
+
+step1 <- lm(formula = igi_escore ~ sexo + idade + superior_completo + etnia_tr + estado_civil_tr  + ocupacao_tr , data=barbara_variaveis_NA)
+
+step2 <- lm(formula = igi_escore ~ sexo + idade + superior_completo + etnia_tr + estado_civil_tr  + ocupacao_tr + neuroticismo_escore_t + extroversao_escore_t + abertura_escore_t + amabilidade_escore_t + conscienciosidade_escore_t, data=barbara_variaveis_NA)
+
+step3 <- lm(formula = igi_escore ~ sexo + idade + superior_completo + etnia_tr + estado_civil_tr + ocupacao_tr + neuroticismo_escore_t + extroversao_escore_t + abertura_escore_t + amabilidade_escore_t + conscienciosidade_escore_t + ehad_ansiedade_escore + ehad_depressao_escore, data=barbara_variaveis_NA)
+
+step_regression <- modelsummary(
+  models = list(
+    "Step 1"= step1,
+    "Step 2" = step2,
+    "Step 3" = step3), 
+  estimate = "{estimate}{stars} [{conf.low}, {conf.high}]",
+  stars = c('*' =.05, '**' = .01),
+  statistic = NULL, 
+  coef_map = cm, 
+  gof_omit = 'Log.Lik|RMSE',
+  fmt = 2, 
+  # output = "huxtable"
+  )
+
+step_regression
+
+model_parameters(step3, ci = 0.95, standardize = "refit")
 ```
