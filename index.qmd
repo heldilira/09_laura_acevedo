@@ -36,6 +36,10 @@ library(easystats)
 library(broom)
 library(gt)
 library(kableExtra)
+library(officer)
+library(huxtable)
+library(flextable)
+library(summarytools)
 ```
 
 ```{r}
@@ -58,54 +62,55 @@ df_select <- df |>
 # Análise Descritiva
 
 ```{r}
-#| label: sequencia das variáveis na tabela 1
+#| label: tbl1 english labels
 #| echo: false
-# Um vetor nomeado: nomes das variáveis = label tabela 1
+# A named vector: variable names = table 1 labels
 variaveis_labels <- c(
-  # Variáveis Categóricas
-  sexo_rec = "Sexo",
-  raca_rec = "Raça",
-  escolaridade_rec2 = "Escolaridade",
-  estado_civil_rec2 = "Estado Civil",
-  tipo_moradia_rec2 = "Moradia",
-  situacao_ocupacional_rec2 = "Situação Ocupacional",
-  renda_rec2 = "Renda",
-  suporte_social_rec = "Suporte Social (companhia)",
-  suporte_social2_rec = "Suporte Social (apoio)",
-  alcool = "Uso de Alcool", 
-  tabaco = "Uso de Tabaco",
-  phq9_cat_rec = "PHQ-9 (categorias)",
-  igi_cat_rec = "IGI (categorias)",
-  gad7_cat_rec = "GAD-7 (categorias)",
-  tratamento_emocional_hist = "Tratamento Psico/Psiq (histórico)", 
-  tratamento_emocional_atual = "Tratamento Psico/Psiq (atual)",
-  medicamento_emocional_atual = "Uso de Medicamentos (sintomas emocionais)",
+  # Categorical Variables
+  sexo_rec = "Sex",
+  raca_rec = "Race",
+  escolaridade_rec2 = "Education",
+  estado_civil_rec2 = "Marital Status",
+  tipo_moradia_rec2 = "Housing Type",
+  situacao_ocupacional_rec2 = "Employment Status",
+  renda_rec2 = "Income",
+  suporte_social_rec = "Social Support (company)",
+  suporte_social2_rec = "Social Support (emotional support)",
+  alcool = "Alcohol Use", 
+  tabaco = "Tobacco Use",
+  phq9_cat_rec = "PHQ-9 (categories)",
+  igi_cat_rec = "IGI (categories)",
+  gad7_cat_rec = "GAD-7 (categories)",
+  tratamento_emocional_hist = "Psychological/Psychiatric Treatment (history)", 
+  tratamento_emocional_atual = "Psychological/Psychiatric Treatment (current)",
+  medicamento_emocional_atual = "Medication Use (emotional symptoms)",
   
-
-  
-  # Variáveis Numéricas
-  idade = "Idade",
-  score_phq = "PHQ-9",
-  score_igi = "IGI",
-  score_gad = "GAD-7",
-  igi_cat_vd = "Igi (VD)"
+  # Numeric Variables
+  idade = "Age",
+  score_phq = "PHQ-9 Score",
+  score_igi = "IGI Score",
+  score_gad = "GAD-7 Score",
+  igi_cat_vd = "ISI (DV)"
 )
 
-# Agora você faz tudo junto:
+# Now combine everything:
 df_select_ordered <- df_select |>
-  select(all_of(names(variaveis_labels))) |>   # seleciona na ordem
-  set_variable_labels(.labels = variaveis_labels)  # aplica labels de uma vez
+  select(all_of(names(variaveis_labels))) |>   # select in the specified order
+  set_variable_labels(.labels = variaveis_labels)  # apply labels at once
 ```
 
 ```{r}
-#| label: pacote {gtsummary}
+#| label: tabela 1 - pacote {gtsummary}
+
 table_descriptives <- df_select_ordered |>
      tbl_summary(
+          by = igi_cat_vd,
           statistic = list(
                all_continuous() ~ "{mean} ({sd}) ({min}-{max})",
                all_categorical() ~ "{n} ({p}%)"), 
           digits = all_continuous() ~ 2,
           missing = "no") |> 
+        add_p() |> 
      bold_labels() |> 
      modify_header(label = "**Variável**")
 
@@ -113,13 +118,12 @@ table_descriptives
 
 table_descriptives |> 
      as_gt() |>
-     gt::gtsave(filename = "output/table1_2.docx")
+     gt::gtsave(filename = "output/table1_3.docx")
 ```
 
 ```{r}
-#| lable: gráfico
+#| label: gráfico das proporções em cada cutoff dos IGI, PHQ e GAD
 
-# Pivot mais limpa
 df_long <- df_select_ordered |>
   select(phq9_cat_rec, igi_cat_rec, gad7_cat_rec) |>
   pivot_longer(
@@ -132,7 +136,7 @@ df_long <- df_select_ordered |>
                          "phq9_cat_rec" = "PHQ-9",
                          "igi_cat_rec" = "IGI",
                          "gad7_cat_rec" = "GAD-7"),
-    categoria = as.factor(categoria), # forçar como texto!
+    categoria = as.factor(categoria), # forçar como texto
     categoria = fct_relevel(categoria, c("Nenhum/Leve", "Mínimo","Leve",  "Moderado", "Moderadamente Grave", "Grave"))
   )
 
@@ -153,45 +157,103 @@ ggplot(df_long, aes(x = categoria, fill = instrumento)) +
 ```{r}
 #| label: correlação
 
-ggcorr(df_select_ordered, 
-       low = "#F21A00", 
-       mid = "#EEEEEE", 
-       high = "#3B9AB2",
-       name = "Correlação 
-de Pearson
-", 
-       label = TRUE,
-       label_size = 4,
-       label_alpha = TRUE,
-       hjust = 0.58, 
-       size = 4, 
-       color = "grey50")
+library(dplyr)
+library(correlation)
+library(gt)
 
-# Tabelinha com Estrelas
-table_correlation <- datasummary_correlation(df_select_ordered)
+# labels
+num_labels <- c(
+  idade      = "AGE",
+  score_phq  = "PHQ-9",
+  score_igi  = "ISI",
+  score_gad  = "GAD-7"
+)
 
-fun = function(x) {
-    out = correlation(x)
-    stars = c('*' =.05, '**' = .01)
-    p = modelsummary:::make_stars(out$p, stars)
-    out$r = sprintf("%.2f%s", out$r, p)
-    out = as.matrix(out)
-    return(out)
+# select
+df_corr <- df_select_ordered |>
+  select(all_of(names(num_labels)))
+
+# correlations
+res <- correlation(df_corr, method = "pearson", ci = 0.95)
+
+# format + add labels
+res_fmt <- res |>
+  mutate(
+    var1 = unname(num_labels[Parameter1]),
+    var2 = unname(num_labels[Parameter2]),
+    r_ci = sprintf("%.2f (%.2f, %.2f)", r, CI_low, CI_high),
+    p = sprintf("%.3f", p)
+  ) |>
+  select(
+    `Variable 1` = var1,
+    `Variable 2` = var2,
+    r_ci,
+    p
+  )
+
+# add stars
+res_stars <- res_fmt |>
+  mutate(
+    stars = case_when(
+      as.numeric(p) < 0.001 ~ "***",
+      as.numeric(p) < 0.01  ~ "**",
+      as.numeric(p) < 0.05  ~ "*",
+      TRUE ~ ""
+    ),
+    `Correlation (95% CI)` = paste0(r_ci, stars)
+  ) |>
+  select(
+    `Variable 1`,
+    `Variable 2`,
+    `Correlation (95% CI)`,
+    p
+  )
+
+tab_corr <- res_stars |>
+  gt() |>
+  tab_header("Pearson correlations with 95% confidence intervals") |>
+  tab_source_note(
+    "*p < 0.05; **p < 0.01; ***p < 0.001.  
+    Abbreviations: PHQ-9, Patient Health Questionnaire-9;  
+    ISI, Insomnia Severity Index;  
+    GAD-7, Generalized Anxiety Disorder-7."
+  )
+
+gt::gtsave(tab_corr, "output/table_corr.docx")
+
+# 1) Rodar todos os testes de correlação
+tests <- list(
+  r1 = cor.test(df_corr$idade,      df_corr$score_phq),
+  r2 = cor.test(df_corr$idade,      df_corr$score_igi),
+  r3 = cor.test(df_corr$idade,      df_corr$score_gad),
+  r4 = cor.test(df_corr$score_phq,  df_corr$score_igi),
+  r5 = cor.test(df_corr$score_gad,  df_corr$score_igi)
+)
+
+# 2) Extrair p-values originais
+p_raw  <- sapply(tests, function(x) x$p.value)
+
+# 3) Ajustar com Holm
+p_holm <- p.adjust(p_raw, method = "holm")
+
+# 4) Substituir o p.value de cada teste pelo valor ajustado
+for (i in seq_along(tests)) {
+  tests[[i]]$p.value <- p_holm[i]
 }
 
-table_correlation_stars <- datasummary_correlation(df_select_ordered, method = fun, )
+# 5) Gerar os textos com report() já usando p Holm-ajustado
+reports_txt <- lapply(tests, report)
 
-table_correlation_stars
-```
+doc <- read_docx("output/table_corr.docx") |>
+  # nota geral sobre o ajuste
+  body_add_par("P-values were adjusted for multiple comparisons using Holm's method.", style = "Normal")
 
-```{r}
-#| results: markup
-# Report dos resultados
-cor.test(df_select_ordered$score_phq, df_select_ordered$score_igi, use = "complete.obs") |> report() |> print()
+# adicionar cada texto de correlação
+for (txt in reports_txt) {
+  doc <- body_add_par(doc, txt, style = "Normal")
+}
 
-cor.test(df_select_ordered$score_gad, df_select_ordered$score_igi, use = "complete.obs") |> report() |> print()
-
-cor.test(df_select_ordered$score_gad, df_select_ordered$score_phq, use = "complete.obs") |> report() |> print()
+print(doc, target = "output/table_corr.docx")
 ```
 
 # Tabelas Regressão Linear
