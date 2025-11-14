@@ -275,14 +275,15 @@ for (txt in reports_txt) {
 }
 
 print(doc, target = "output/table_corr.docx")
-```
 
-# Tabelas Regressão Linear
+res
+reports_txt
+```
 
 ```{r}
 #| label: tabelas-reg-completo
+#| eval: false
 #| echo: false
-#| results: asis
 
 # 1) vetor das IVs categóricas
 vars_cat <- df_select_ordered |>  
@@ -341,38 +342,32 @@ table_regression <- function(y_name, data = df_select_ordered) {
 }
 ```
 
-## Preditores do IGI
-
 ```{r}
 #| echo: false
 #| results: asis
+#| eval: false
+
 table_regression("score_igi")
 ```
 
-## Preditores do GAD-7
-
 ```{r}
 #| echo: false
 #| results: asis
+#| eval: false
+
 table_regression("score_gad")
 ```
 
-## Preditores do PHQ-9
-
 ```{r}
+#| eval: false
 #| echo: false
 #| results: asis
 table_regression("score_phq")
 ```
 
-# Tabela Regressão Logística
-
--   Não insone = IGI \< 15
-
--   Insone = IGI \>= 15
-
 ```{r}
 #| label: logit-univ-final
+#| eval: false
 #| echo: false
 #| results: asis
 #| warning: false
@@ -449,33 +444,37 @@ tab_log %>%
   )
 ```
 
-# Regressões
+# Regressões Linear Múltipla
 
 ```{r}
-#| label: Barbara - Tabela pelo pacote {modelsummary}
-#| eval: FALSE
-
-step1 <- lm(formula = igi_escore ~ sexo + idade + superior_completo + etnia_tr + estado_civil_tr  + ocupacao_tr , data=barbara_variaveis_NA)
-
-step2 <- lm(formula = igi_escore ~ sexo + idade + superior_completo + etnia_tr + estado_civil_tr  + ocupacao_tr + neuroticismo_escore_t + extroversao_escore_t + abertura_escore_t + amabilidade_escore_t + conscienciosidade_escore_t, data=barbara_variaveis_NA)
-
-step3 <- lm(formula = igi_escore ~ sexo + idade + superior_completo + etnia_tr + estado_civil_tr + ocupacao_tr + neuroticismo_escore_t + extroversao_escore_t + abertura_escore_t + amabilidade_escore_t + conscienciosidade_escore_t + ehad_ansiedade_escore + ehad_depressao_escore, data=barbara_variaveis_NA)
+step1 <- lm(score_igi ~ sexo_rec + raca_rec + score_phq + score_gad,
+            data = df_select_ordered)
 
 step_regression <- modelsummary(
-  models = list(
-    "Step 1"= step1,
-    "Step 2" = step2,
-    "Step 3" = step3), 
+  models   = list("Step 1" = step1),
   estimate = "{estimate}{stars} [{conf.low}, {conf.high}]",
-  stars = c('*' =.05, '**' = .01),
-  statistic = NULL, 
-  coef_map = cm, 
-  gof_omit = 'Log.Lik|RMSE',
-  fmt = 2, 
-  # output = "huxtable"
-  )
+  stars    = c('*' = .05, '**' = .01),
+  statistic = NULL,
+  gof_omit  = 'Log.Lik|RMSE',
+  fmt       = 2,
+  output    = "gt"
+)
+
+gt::gtsave(step_regression, filename = "output/multiple_regression.docx")
+
+report1 <- report::report(step1)
+check1  <- performance::check_model(step1)
+
+# Text from report()
+report1_text <- as.character(report1)
+
+doc <- read_docx("output/multiple_regression.docx") |>
+  body_add_par(value = "Regression report", style = "heading 1") |>
+  body_add_par(value = report1_text, style = "Normal")
+
+print(doc, target = "output/multiple_regression_full.docx")
 
 step_regression
-
-model_parameters(step3, ci = 0.95, standardize = "refit")
+report1
+check1
 ```

@@ -601,6 +601,23 @@
       ],
       "Hash": "2be734db72d99454c64fc981db4cd920"
     },
+    "cardx": {
+      "Package": "cardx",
+      "Version": "0.3.0",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Requirements": [
+        "R",
+        "cards",
+        "cli",
+        "dplyr",
+        "glue",
+        "lifecycle",
+        "rlang",
+        "tidyr"
+      ],
+      "Hash": "bdd8ac3d47e5d5689edd871f9b1d40bd"
+    },
     "cellranger": {
       "Package": "cellranger",
       "Version": "1.1.0",
